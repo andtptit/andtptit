@@ -1,13 +1,17 @@
 from concurrent.futures import thread
+from importlib.resources import path
 import requests
 import urllib3
 import http.client
 import random
 import datetime
 from threading import Thread
+import json
+from pathlib import Path
 
 TIMEOUT_IP_CONFIG_SEC = 20
 PROXX_URL_FORMAT = 'https://www.proxx.io/proxies.txt?cc={}&user_email=tongvantruong94%40gmail.com&user_token=izgSf2d9G1kL2QNjyKMU'
+API_URL = 'https://api.mobrand.net/Gav8vxBSRSOq8drxN7CsGw/bulk/liveoffers/v3/VI9JngfjTJKbkzKgG_yTBQ?apikey=d1FGCEZIcmNiY39BCFRCSH4Hc0N3Rw'
 
 
 def get_proxies_by_url(url):
@@ -37,13 +41,14 @@ def get_comment_by_file():
     return data[ran]
 
 def save_log(text):
-    date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    save_log = Path('./File/log.txt')
+    save_log = Path('./log.txt')
     save_log.touch(exist_ok=True)
     file = open(save_log, 'a')
 
-    date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    date = 'XXX'
     text_log = "{} - {}".format(date,text)
 
     file.write(text_log)
@@ -57,8 +62,8 @@ class CheckOfferThread(Thread):
         self.__headers = headers
 
     def run(self):
-        print("__Start thread {}".format(self.__name))
-        responses = requests.get('http://track.gramgs.com/checklive.php?aff_id=153&id_offer=3877', headers=self.__headers, proxies=self.__proxies, verify=False)
+        print("__Start thread {}".format(self.__proxies))
+        responses = requests.get('http://track.gramgs.com/checklive.php?aff_id=153&id_offer=3877', headers=self.__headers, verify=False)
         for response in responses.history:
             print(response.url)
         print("__Done thread {}".format(self.__name))
@@ -75,24 +80,26 @@ class HandleConfig():
         response = response.text
 
         proxies_split = response.splitlines()
-        ran = random.randint(0, len(proxies_split) - 1)
-        proxies = proxies_split[ran]
 
-        return proxies
+        return proxies_split
     
     def run(self):
         headers = {'user-agent': 'Mozilla/5.0 (Linux; Android 8.1.0; SM-J727S Build/M1AJQ) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.143 Mobile Safari/537.36'}
 
-        proxiesx = self.__config_proxies()
-
-        proxies = {
-                'http': 'socks5://' + proxiesx,
-                'https': 'socks5://' + proxiesx
-            }
+        proxies_split = self.__config_proxies()
+        
         count = 0
         threads = []
         while count < 5:
+            ran = random.randint(0, len(proxies_split) - 1)
+            proxies = proxies_split[ran]
+
+            proxies = {
+                    'http': 'socks5://' + proxies,
+                    'https': 'socks5://' + proxies
+                }
             
+            print(proxies)
             filter_thread = CheckOfferThread(str(count+1), headers, proxies)
             threads.append(filter_thread)
             filter_thread.start()
@@ -148,4 +155,26 @@ urllib3.disable_warnings()
 # for filter_thread in threads:
 #     filter_thread.join()
 
-HandleConfig('jp', 'http://track.gramgs.com/checklive.php?aff_id=153&id_offer=3877').run()
+# HandleConfig('jp', 'http://track.gramgs.com/checklive.php?aff_id=153&id_offer=3877').run()
+
+
+array_url = {}
+num = 0
+def get_api_by_url():
+    response = requests.get(timeout=120, url=API_URL)
+    response = response.json()
+
+    # y = json.loads(response)
+    num = 0
+
+    for key in response['campaigns']:
+        for k in key['list']:
+            for y in k['countries']:
+                num += 1
+                array_url[num] = k['offerLink']
+
+    save_log(array_url)
+
+
+
+get_api_by_url()
