@@ -1,0 +1,11 @@
+us
+jp
+kr
+ru
+in
+sa
+mx
+ca
+th
+tw
+uk
