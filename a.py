@@ -15,18 +15,19 @@ from pathlib import Path
 import os
 import time
 import sys
+import base64
 
 TIMEOUT_IP_CONFIG_SEC = 60
 PROXX_URL_FORMAT = 'https://www.proxx.io/proxies.txt?cc={}&user_email=tongvantruong94%40gmail.com&user_token=izgSf2d9G1kL2QNjyKMU'
 API_URL = 'https://api.mobrand.net/Gav8vxBSRSOq8drxN7CsGw/bulk/liveoffers/v3/VI9JngfjTJKbkzKgG_yTBQ?apikey=d1FGCEZIcmNiY39BCFRCSH4Hc0N3Rw'
 
-# UPLOAD_URL = 'http://192.168.1.102/api/update_api_mob.php'
-UPLOAD_URL = 'http://track.gramgs.com/api/update_api_mob.php'
+UPLOAD_URL = 'http://192.168.1.102/api/update_api_mob.php'
+# UPLOAD_URL = 'http://track.gramgs.com/api/update_api_mob.php'
 
 COUNTRIES_ARRAY = ["us", "jp", "kr", "ru", "in", "sa", "mx", "ca", "th", "tw", "uk"]
 TRACKING_ARRAY = ["appsflyer", "adforce", "adjust", "singular", "branch", "kochava"]
 
-NUM_THREAD = 10
+NUM_THREAD = 5
 IS_RUNNING = False
 
 
@@ -91,43 +92,106 @@ def save_file(name, text):
 
 
 class CheckOfferThread(Thread):
-    def __init__(self, name, headers, proxies, tracking_url, country, platform):
+    def __init__(self, name, headers, tracking_url, country, platform, offer_name, payout, offer_id, preview_link):
         super(CheckOfferThread, self).__init__()
         self.__name = name
-        self.__proxies = proxies
         self.__headers = headers
         self.__tracking_url = tracking_url
         self.__country = country
         self.__platform = platform
+        self.__offer_name = offer_name
+        self.__payout = payout
+        self.__offer_id = offer_id
+        self.__preview_link = preview_link
 
     def run(self):
         res_arr = self.__tracking_url
-        print("__Start thread {} __ {} __ {}".format(self.__proxies, self.__tracking_url, self.__headers))
+        print("__Start thread __ {} __ {}".format(self.__tracking_url, self.__headers))
         
         # save file used
         save_log('Tracking_used', self.__tracking_url + "|" + self.__country)
 
         level = 0
         cnt = 0
-        try:
-            responses = requests.get(self.__tracking_url, headers=self.__headers, proxies=self.__proxies, timeout=TIMEOUT_IP_CONFIG_SEC,  verify=False)
-            for response in responses.history:
-                res_arr = res_arr + "|" + response.url
-                level += 1
-                print(response.url)
-            print('__________________________')
-            print(responses.url)
-            res_arr = res_arr + "|" + responses.url
-            save_log("Result", res_arr)
-            cnt = 3
-        except Exception as e:
-            print("__ERROR__" + str(e))
-            save_log("Result", res_arr)
+        while cnt < 3:
+            try:
+                proxies_fil = ''
+                # get proxies
+                if (self.__country == 'jp'):
+                    ranx = random.randint(0, len(proxy_jp) - 1)
+                    proxies_fil = proxy_jp[ranx]   
+
+                elif (self.__country == 'kr'):
+                    ranx = random.randint(0, len(proxy_kr) - 1)
+                    proxies_fil = proxy_kr[ranx]
+
+                elif (self.__country == 'us'):
+                    ranx = random.randint(0, len(proxy_us) - 1)
+                    proxies_fil = proxy_us[ranx]
+
+                elif (self.__country == 'ru'):
+                    ranx = random.randint(0, len(proxy_ru) - 1)
+                    proxies_fil = proxy_ru[ranx]
+
+                elif (self.__country == 'in'):
+                    ranx = random.randint(0, len(proxy_in) - 1)
+                    proxies_fil = proxy_in[ranx]
+
+                elif (self.__country == 'sa'):
+                    ranx = random.randint(0, len(proxy_sa) - 1)
+                    proxies_fil = proxy_sa[ranx]
+
+                elif (self.__country == 'mx'):
+                    ranx = random.randint(0, len(proxy_mx) - 1)
+                    proxies_fil = proxy_mx[ranx]
+
+                elif (self.__country == 'ca'):
+                    ranx = random.randint(0, len(proxy_ca) - 1)
+                    proxies_fil = proxy_ca[ranx]
+
+                elif (self.__country == 'th'):
+                    ranx = random.randint(0, len(proxy_th) - 1)
+                    proxies_fil = proxy_th[ranx]
+
+                elif (self.__country == 'tw'):
+                    ranx = random.randint(0, len(proxy_tw) - 1)
+                    proxies_fil = proxy_tw[ranx]
+                
+                elif (self.__country == 'uk'):
+                    if (len(proxy_uk) != 0):
+                        ranx = random.randint(0, len(proxy_uk) - 1)
+                        proxies_fil = proxy_uk[ranx]
+
+
+                proxies = {
+                        'http': 'socks5://' + proxies_fil,
+                        'https': 'socks5://' + proxies_fil
+                    }
+                
+
+                responses = requests.get(self.__tracking_url, headers=self.__headers, proxies=proxies, timeout=TIMEOUT_IP_CONFIG_SEC,  verify=False)
+                for response in responses.history:
+                    res_arr = res_arr + "|" + response.url
+                    level += 1
+                    print(response.url)
+                print('__________________________')
+                print(responses.url)
+                res_arr = res_arr + "|" + responses.url
+                save_log("Result", res_arr)
+                cnt = 3
+            except Exception as e:
+                print("__ERROR__ {}".format(cnt) + str(e))
+                cnt += 1
+                save_log("Result", res_arr)
 
         pass_tracking = 0
-        if "appsflyer" in res_arr or "adjust" in res_arr or "adforce" in res_arr or "singular" in res_arr or "branch" in res_arr or "kochava" in res_arr:
-            pass_tracking = 1
+        for tracking in TRACKING_ARRAY:
+            if tracking in res_arr:
+                pass_tracking = 1
         
+
+        decodedBytes = base64.b64decode(str(self.__offer_name))
+        offer_name = str(decodedBytes, "utf-8")
 
         data = {
             'country': self.__country,
@@ -135,7 +199,12 @@ class CheckOfferThread(Thread):
             'data': res_arr,
             'tracking_url': self.__tracking_url,
             'pass_tracking': pass_tracking,
-            'level': level
+            'level': level,
+            'offer_name': offer_name,
+            'payout': self.__payout,
+            'offer_id': self.__offer_id,
+            'preview_link': self.__preview_link
+            
         }
 
         try:
@@ -179,59 +248,14 @@ class HandleConfig():
                     tracking_link = tracking_info[0]
                     proxies_geo = tracking_info[1]
                     platform = tracking_info[2]
+                    offer_name = tracking_info[3]
+                    payout = tracking_info[4]
+                    offer_id = tracking_info[5]
+                    preview_link = tracking_info[6]
                 except:
                     exit()
 
-                if (proxies_geo == 'jp'):
-                    ranx = random.randint(0, len(proxy_jp) - 1)
-                    proxies_fil = proxy_jp[ranx]   
-
-                elif (proxies_geo == 'kr'):
-                    ranx = random.randint(0, len(proxy_kr) - 1)
-                    proxies_fil = proxy_kr[ranx]
-
-                elif (proxies_geo == 'us'):
-                    ranx = random.randint(0, len(proxy_us) - 1)
-                    proxies_fil = proxy_us[ranx]
-
-                elif (proxies_geo == 'ru'):
-                    ranx = random.randint(0, len(proxy_ru) - 1)
-                    proxies_fil = proxy_ru[ranx]
-
-                elif (proxies_geo == 'in'):
-                    ranx = random.randint(0, len(proxy_in) - 1)
-                    proxies_fil = proxy_in[ranx]
-
-                elif (proxies_geo == 'sa'):
-                    ranx = random.randint(0, len(proxy_sa) - 1)
-                    proxies_fil = proxy_sa[ranx]
-
-                elif (proxies_geo == 'mx'):
-                    ranx = random.randint(0, len(proxy_mx) - 1)
-                    proxies_fil = proxy_mx[ranx]
-
-                elif (proxies_geo == 'ca'):
-                    ranx = random.randint(0, len(proxy_ca) - 1)
-                    proxies_fil = proxy_ca[ranx]
-
-                elif (proxies_geo == 'th'):
-                    ranx = random.randint(0, len(proxy_th) - 1)
-                    proxies_fil = proxy_th[ranx]
-
-                elif (proxies_geo == 'tw'):
-                    ranx = random.randint(0, len(proxy_tw) - 1)
-                    proxies_fil = proxy_tw[ranx]
                 
-                elif (proxies_geo == 'uk'):
-                    if (len(proxy_uk) != 0):
-                        ranx = random.randint(0, len(proxy_uk) - 1)
-                        proxies_fil = proxy_uk[ranx]
-
-
-                proxies = {
-                        'http': 'socks5://' + proxies_fil,
-                        'https': 'socks5://' + proxies_fil
-                    }
                 
                 headers = ''
                 if (platform == 'ios'):
@@ -248,7 +272,7 @@ class HandleConfig():
                     headers = {'user-agent': user_agent}
 
 
-                filter_thread = CheckOfferThread(str(count+1), headers, proxies, tracking_link, proxies_geo, platform)
+                filter_thread = CheckOfferThread(str(count+1), headers, tracking_link, proxies_geo, platform, offer_name, payout, offer_id, preview_link)
                 threads.append(filter_thread)
                 filter_thread.start()
 
@@ -268,6 +292,7 @@ def get_api_by_url():
     response = response.json()
 
     # y = json.loads(response)
+
     num = 0
     try:
         os.remove("Tracking_url.txt")
@@ -279,8 +304,10 @@ def get_api_by_url():
             for y in k['countries']:
                 for country in COUNTRIES_ARRAY:
                     if y == country:
+                        encodedBytes = base64.b64encode(str(k['offerName']).encode("utf-8"))
+                        offer_name = str(encodedBytes, "utf-8")
                         num += 1
-                        save_file('Tracking_url', k['offerLink'] + "|" + y + "|" + key['platform'])
+                        save_file('Tracking_url', k['offerLink'] + "|" + y + "|" + key['platform'] + "|" + offer_name + "|" + str(k['payout']) + "|" + k['id'] + "|" + key['previewLink'])
     
     print("SUCCESS GET TRACKING URL")
 
